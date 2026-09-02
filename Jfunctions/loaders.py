@@ -1,13 +1,12 @@
 import numpy as np
 import pandas as pd
 import os
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 #still need to make exact split
 
-def exact_balanced_split(y, n_each_class, rng=None):
-    if rng is None:
-        rng = np.random.default_rng()
+def exact_balanced_split(y, n_each_class, rng):
 
     y = np.asarray(y)
     inds_train = []
@@ -31,17 +30,18 @@ def exact_balanced_split(y, n_each_class, rng=None):
 def data_loader_maker(*, data: pd.DataFrame,
                       feature_cols: range,
                       target_col: int,
-                      n_samps: int):
+                      n_samps: int,
+                      seed: int):
 
     y = data.iloc[:, target_col]
-    train_inds, test_inds = exact_balanced_split(y, n_samps // 2)
+    train_inds, test_inds = exact_balanced_split(y, n_samps // 2, rng=np.random.default_rng(seed))
 
-    scaler = StandardScaler()
-    X_train_scaled = pd.DataFrame(scaler.fit_transform(data.iloc[train_inds].drop(data.columns[target_col], axis=1)))
-    train_scaled = pd.concat([X_train_scaled, y[train_inds].reset_index(drop=True)], axis=1)
+    
+    X_train_scaled = data.iloc[train_inds].drop(data.columns[target_col], axis=1)
+    train_scaled = pd.concat([X_train_scaled, y[train_inds]], axis=1)
 
-    X_test_scaled = pd.DataFrame(scaler.transform(data.iloc[test_inds].drop(data.columns[target_col], axis=1)))
-    test_scaled = pd.concat([X_test_scaled, y[test_inds].reset_index(drop=True)], axis=1)
+    X_test_scaled = data.iloc[test_inds].drop(data.columns[target_col], axis=1)
+    test_scaled = pd.concat([X_test_scaled, y[test_inds]], axis=1)
 
 
     return {
@@ -57,9 +57,12 @@ def model_loader_maker(model_constructor,
                        hyperparameter_high,
                        round_param=None,
                        logList=None):
+    def make_model(**kwargs):
+        estimator = model_constructor(**kwargs)
+        return Pipeline([('scaler', StandardScaler()), ('model', estimator)])
 
     return {
-        "model_constructor": model_constructor,
+        "model_constructor": make_model,
         "hyperparameters": hyperparameters,
         "hyperparameter_low": hyperparameter_low,
         "hyperparameter_high": hyperparameter_high,
