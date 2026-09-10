@@ -6,15 +6,12 @@ from Jfunctions import util_functions
 
 from sklearn.model_selection import (
     GridSearchCV,
-    RandomizedSearchCV,
     StratifiedKFold,
     cross_val_score
 )
-from sklearn.metrics import balanced_accuracy_score, log_loss, brier_score_loss, make_scorer
+from sklearn.metrics import balanced_accuracy_score, brier_score_loss, make_scorer
 from scipy.optimize import minimize
 import statsmodels.formula.api as smf
-from skopt import BayesSearchCV
-from skopt.space import Real, Integer
 
 
 
@@ -113,14 +110,23 @@ def ablation_analysis(
     # param space is for RSM
     # param grid space is for CV
 
-    space_ba_emp_test, space_ba_emp_val = empirical_min(Xtrain, ytrain, Xtest, ytest, base_model,param_grid_space,True,cv) 
-    space_mse_emp_test, space_mse_emp_val = empirical_min(Xtrain, ytrain, Xtest, ytest, base_model,param_grid_space,False,cv) 
-    space_mse_rsm_2_test, space_mse_rsm_2_val = expected_min(Xtrain, ytrain, Xtest, ytest, base_model,params_space, hyperparameters, n_hyp, round_param, logList, lows, highs, False,False,cv) 
-    space_ba_rsm_2_test, space_ba_rsm_2_val = expected_min(Xtrain, ytrain, Xtest, ytest, base_model,params_space, hyperparameters, n_hyp, round_param, logList, lows, highs, True,False,cv) 
-    grid_mse_rsm_2_test, grid_mse_rsm_2_val = expected_min(Xtrain, ytrain, Xtest, ytest, base_model,param_grid_cart_dict, hyperparameters, n_hyp, round_param, logList, lows, highs, False,False,cv) 
-    grid_ba_rsm_2_test, grid_ba_rsm_2_val = expected_min(Xtrain, ytrain, Xtest, ytest, base_model,param_grid_cart_dict, hyperparameters, n_hyp, round_param, logList, lows, highs, True,False,cv) 
-    grid_mse_rsm_3_test, grid_mse_rsm_3_val = expected_min(Xtrain, ytrain, Xtest, ytest, base_model,param_grid_cart_dict, hyperparameters, n_hyp, round_param, logList, lows, highs, False,True,cv) 
-    grid_ba_rsm_3_test, grid_ba_rsm_3_val = expected_min(Xtrain, ytrain, Xtest, ytest, base_model,param_grid_cart_dict, hyperparameters, n_hyp, round_param, logList, lows, highs, True,True,cv)
+
+    ########################### get four grids ###########################
+
+    grid_ba_out = run_grid(Xtrain, ytrain, hyperparameters, round_param, base_model, param_grid_cart_dict, True, cv)
+    grid_mse_out = run_grid(Xtrain, ytrain, hyperparameters, round_param, base_model, param_grid_cart_dict, False, cv)
+    space_ba_out = run_grid(Xtrain, ytrain, hyperparameters, round_param, base_model, params_space, True, cv)
+    space_mse_out = run_grid(Xtrain, ytrain, hyperparameters, round_param, base_model, params_space, False, cv)
+
+
+    space_ba_emp_test, space_ba_emp_val = empirical_min(Xtrain, ytrain, Xtest, ytest, base_model,hyperparameters, round_param, space_ba_out) 
+    space_mse_emp_test, space_mse_emp_val = empirical_min(Xtrain, ytrain, Xtest, ytest, base_model,hyperparameters, round_param, space_mse_out) 
+    space_mse_rsm_2_test, space_mse_rsm_2_val = expected_min(Xtrain, ytrain, Xtest, ytest, base_model,space_mse_out, hyperparameters, n_hyp, round_param, logList, lows, highs, False,cv) 
+    space_ba_rsm_2_test, space_ba_rsm_2_val = expected_min(Xtrain, ytrain, Xtest, ytest, base_model,space_ba_out, hyperparameters, n_hyp, round_param, logList, lows, highs, False,cv) 
+    grid_mse_rsm_2_test, grid_mse_rsm_2_val = expected_min(Xtrain, ytrain, Xtest, ytest, base_model,grid_mse_out, hyperparameters, n_hyp, round_param, logList, lows, highs, False,cv) 
+    grid_ba_rsm_2_test, grid_ba_rsm_2_val = expected_min(Xtrain, ytrain, Xtest, ytest, base_model,grid_ba_out, hyperparameters, n_hyp, round_param, logList, lows, highs, False,cv) 
+    grid_mse_rsm_3_test, grid_mse_rsm_3_val = expected_min(Xtrain, ytrain, Xtest, ytest, base_model,grid_mse_out, hyperparameters, n_hyp, round_param, logList, lows, highs, True,cv) 
+    grid_ba_rsm_3_test, grid_ba_rsm_3_val = expected_min(Xtrain, ytrain, Xtest, ytest, base_model,grid_ba_out, hyperparameters, n_hyp, round_param, logList, lows, highs, True,cv)
 
     return {
          "space_ba_emp_test": space_ba_emp_test,
@@ -148,51 +154,35 @@ def empirical_min(
           Xtest,
           ytest,
           base_model,
-          param_grid,
-          ba_bool,
-          cv
+          hyperparameters,
+          round_param,
+          params_df,
 ):
-    search = GridSearchCV(
-                base_model(),
-                param_grid=param_grid,
-                scoring="balanced_accuracy" if ba_bool else neg_brier_scorer,
-                cv=cv,
-                n_jobs=1
-            )
-    search.fit(Xtrain, ytrain)
+    best_idx = params_df["Accuracy"].idxmin()
+    params = {}
+    for i, hp in enumerate(hyperparameters):
+        params[hp] = params_df.iloc[best_idx][f"model__{hp}"]
+        if round_param[i]:
+            params[hp] = np.round(params[hp]).astype(int)
     
-    best_model = search.best_estimator_
+    best_model = base_model(**params)
+    best_model.fit(Xtrain, ytrain)
 
     yhat_test = best_model.predict(Xtest)
 
     grid_search_test_acc = balanced_accuracy_score(ytest, yhat_test)
-    grid_search_val_acc = cross_val_score(
-                                        best_model,
-                                        Xtrain,
-                                        ytrain,
-                                        scoring="balanced_accuracy",
-                                        cv=cv,
-                                        n_jobs=1
-                                    ).mean()
+    grid_search_val_acc = -params_df["Accuracy"].min()
     return grid_search_test_acc, grid_search_val_acc
 
-def expected_min(
+def run_grid(
           Xtrain,
           ytrain,
-          Xtest,
-          ytest,
+          hyperparameters,
+          round_param,
           base_model,
           param_grid,
-          hyperparameters,
-          n_hyp,
-          round_param,
-          logList,
-          lows,
-          highs,
           ba_bool,
-          cubic_bool,
-          cv
-):
+          cv):
     des_grid_real = pd.DataFrame(param_grid)
     des_scores = []
 
@@ -214,7 +204,29 @@ def expected_min(
             cv=cv
         )
         des_scores.append(-scores.mean())
+    
+    des_grid_real["Accuracy"] = des_scores
+    return des_grid_real
+    
 
+def expected_min(
+          Xtrain,
+          ytrain,
+          Xtest,
+          ytest,
+          base_model,
+          des_grid_real,
+          hyperparameters,
+          n_hyp,
+          round_param,
+          logList,
+          lows,
+          highs,
+          cubic_bool,
+          cv
+):
+
+    des_scores = des_grid_real["Accuracy"].values
     df_surrogate = pd.DataFrame()
 
     for i, hp in enumerate(hyperparameters):
