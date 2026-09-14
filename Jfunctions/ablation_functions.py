@@ -152,7 +152,7 @@ def empirical_min(
     best_idx = params_df[metric_string].idxmin()
     params = {}
     for i, hp in enumerate(hyperparameters):
-        params[hp] = params_df.iloc[best_idx][f"model__{hp}"]
+        params[hp] = params_df.loc[best_idx][f"model__{hp}"]
         if round_param[i]:
             params[hp] = np.round(params[hp]).astype(int)
     
