@@ -5,7 +5,7 @@ os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 os.chdir(
-    r"C:/Users/ritch/Documents/DOE Papers/Small Sample ML Code/Python/"
+    "user/directory/here"
 )
 
 
@@ -16,7 +16,9 @@ import numpy as np
 import pandas as pd
 from Jfunctions import loaders, ablation_functions, util_functions
 
-from sklearn.svm import SVC, LinearSVC, NuSVC
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.svm import SVC
+from sklearn.model_selection import LeaveOneOut, StratifiedKFold
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.pipeline import make_pipeline
 from xgboost import XGBClassifier
@@ -29,12 +31,12 @@ load_id_list = [722, 734, 735, 752, 761, 821, 833, 846, 847, 976, 977, 979, 1019
 # load_id_list = [1019, 44115]
 
 nsim = 100
-gridSize = 125
+gridSize = 25
 n_samps_list = [10, 20, 50, 100, 200]
-# n_samps_list = [10]
+# n_samps_list = [10, 20]
 searchMethod = "Grid"
 model = lambda **kw: SVC(probability=True, random_state=random_state, **kw)
-model = lambda **kw: GradientBoostingClassifier(**kw)
+# model = lambda **kw: GradientBoostingClassifier(**kw)
 
 
 modelLoader = loaders.model_loader_maker(
@@ -46,14 +48,15 @@ modelLoader = loaders.model_loader_maker(
     round_param=[False, False]
 )
 
-modelLoader = loaders.model_loader_maker(
-    model_constructor=lambda **kw: GradientBoostingClassifier(random_state=random_state, **kw),
-    hyperparameters=["learning_rate", "n_estimators", "max_depth"],
-    hyperparameter_low=[2**-10, 100, 1],
-    hyperparameter_high=[1, 1000, 5],
-    logList=[True, False, False],
-    round_param=[False, True, True]
-)
+
+# modelLoader = loaders.model_loader_maker(
+#     model_constructor=lambda **kw: GradientBoostingClassifier(random_state=random_state, **kw),
+#     hyperparameters=["learning_rate", "n_estimators", "max_depth"],
+#     hyperparameter_low=[2**-10, 100, 1],
+#     hyperparameter_high=[1, 1000, 5],
+#     logList=[True, False, False],
+#     round_param=[False, True, True]
+# )
 
 designLoader = loaders.design_loader_maker(
     criterion="space",
@@ -144,8 +147,7 @@ sim_out = pd.concat(full_sim, ignore_index=True)
 # print()
 print(np.mean(sim_out.iloc[:, 5]))
 sim_out.to_csv(
-    f"C:/Users/ritch/Documents/DOE Papers/Small Sample ML Code/"
-    f"{model()}_brier_bayes_sim_mse_ablation.csv",
+    f"user/directory/here/{model()}_brier_bayes_sim_mse_ablation.csv",
     index=False,
     # mode = 'a',
     # header=False

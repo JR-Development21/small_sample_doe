@@ -78,8 +78,7 @@ def design_loader_maker(*,
 
     if criterion == "space":
         file_name = (
-            f"C:/Users/ritch/Documents/DOE Papers/Small Sample ML Code/"
-            f"smallSample.jl/designs/design_k{k}_N{N}.csv"
+            f"user/directory/here/design_k{k}_N{N}.csv"
         )
 
         if os.path.isfile(file_name):
