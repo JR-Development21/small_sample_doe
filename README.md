@@ -1,0 +1,7 @@
+This repo contains the code used to generate the results for the paper "Hyperparameter Optimization for Small-Sample Machine Learning via Design of Experiments". The contents of the code used for the main body of the text are arranged as follows.
+
+- sim.py contains the code used to run the main body of simulation. In order to switch between the SVM and GBM, the user must comment out the lines pertaining to the extraneous model and uncomment the lines pertaining to the model of choice. We also note that the grid size must be switched between 25 (SVM) and 125 (GBM).
+- sim_functions.py contains the functions used for the main analysis. In order to switch between balanced accuracy and MSE, the scoring metric for GridSearchCV, BayesOptCV, and the cross_val_score pertaining to the main body of the DoE approach must be switched between balanced_accuracy and neg_brier_score (the existing code for this is there, but commented out)
+- sim.ablation contains the code used to run the ablation analysis. Similar changes must be made to switch between SVM and GBM results.
+- Jfunctions/ablation_functions.py contains the functions used for the ablation analysis
+- Jfunctions/loaders.py contains functions that create loaders for both the main analysis and ablation analysis. NOTE: the file path for the design_loader_maker function must be changed to reflect the user's file path to the designs found in the Jfunctions/designs folder.
